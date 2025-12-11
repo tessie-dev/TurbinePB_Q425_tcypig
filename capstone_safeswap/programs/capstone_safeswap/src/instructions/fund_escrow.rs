@@ -17,17 +17,20 @@ pub struct FundEscrow<'info> {
 
 impl<'info> FundEscrow<'info> {
     pub fn fund(&mut self) -> Result<()> {
+        let escrow = &mut self.escrow;
+
         require!(
-            self.escrow.buyer == self.buyer.key(),  // buyer.key() is signer's pubkey
-            EscrowError::WrongBuyer
-        );
-        require!(
-            self.escrow.status == TradeStatus::Created,
+            escrow.status == TradeStatus::Created,
             EscrowError::InvalidStatus
         );
 
+        if escrow.buyer == Pubkey::default() {
+            escrow.buyer = self.buyer.key();
+        } else {
+            require!(escrow.buyer == self.buyer.key(), EscrowError::WrongBuyer);
+        }
+
         let buyer = &self.buyer;
-        let escrow = &mut self.escrow;
 
         // buyer -> escrow
         let transfer_accounts = Transfer {
