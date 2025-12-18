@@ -17,12 +17,20 @@ pub struct CompleteEscrow<'info> {
     #[account(mut)]
     pub escrow: Account<'info, EscrowAccount>,
 
+    /// CHECK: vault PDA, system-owned
+    #[account(
+        mut,
+        seeds = [b"vault", escrow.key().as_ref()],
+        bump,
+    )]
+    pub vault: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
 
 impl<'info> CompleteEscrow<'info> {
-    pub fn complete(&mut self) -> Result<()> {
+    pub fn complete(&mut self, vault_bump: u8) -> Result<()> {
         require!(
             self.escrow.buyer == self.buyer.key(),
             EscrowError::WrongBuyer
@@ -41,17 +49,18 @@ impl<'info> CompleteEscrow<'info> {
         let seller = &self.seller;
         let escrow = &mut self.escrow;
 
-        // escrow -> seller
+        // vault-> seller
         let transfer_accounts = Transfer {
-            from: escrow.to_account_info(),
+            from: self.vault.to_account_info(),
             to: seller.to_account_info(),
         };
 
         // PDA signer seeds
+        let escrow_key = escrow.key();
         let seeds = &[
-            b"escrow".as_ref(),
-            escrow.seller.as_ref(),
-            &[escrow.bump],
+            b"vault".as_ref(),
+            escrow_key.as_ref(),
+            &[vault_bump],
         ];
         let signer_seeds = &[&seeds[..]];
 

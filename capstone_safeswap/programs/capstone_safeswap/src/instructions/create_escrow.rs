@@ -15,6 +15,17 @@ pub struct CreateEscrow<'info> {
     )]
     pub escrow: Account<'info, EscrowAccount>,
 
+    /// CHECK: This is a PDA system-owned vault (no data) used only to hold SOL.
+    #[account(
+        init,
+        payer = seller,
+        space = 0,
+        seeds = [b"vault", escrow.key().as_ref()],
+        bump,
+        owner = system_program::ID
+    )]
+    pub vault: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 

@@ -11,6 +11,14 @@ pub struct FundEscrow<'info> {
     #[account(mut)]
     pub escrow: Account<'info, EscrowAccount>,
 
+    /// CHECK: vault PDA, system-owned
+    #[account(
+        mut,
+        seeds = [b"vault", escrow.key().as_ref()],
+        bump,
+    )]
+    pub vault: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -35,7 +43,7 @@ impl<'info> FundEscrow<'info> {
         // buyer -> escrow
         let transfer_accounts = Transfer {
             from: buyer.to_account_info(),
-            to: escrow.to_account_info(),
+            to: self.vault.to_account_info(),
         };
 
         let cpi_ctx = CpiContext::new(

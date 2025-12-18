@@ -11,12 +11,20 @@ pub struct RefundEscrow<'info> {
     #[account(mut)]
     pub escrow: Account<'info, EscrowAccount>,
 
+    /// CHECK: vault PDA, system-owned
+    #[account(
+        mut,
+        seeds = [b"vault", escrow.key().as_ref()],
+        bump,
+    )]
+    pub vault: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
 
 impl<'info> RefundEscrow<'info> {
-    pub fn refund(&mut self) -> Result<()> {
+    pub fn refund(&mut self, vault_bump: u8) -> Result<()> {
         let escrow = &mut self.escrow;
 
         require!(
@@ -33,15 +41,16 @@ impl<'info> RefundEscrow<'info> {
 
         // escrow -> buyer
         let transfer_accounts = Transfer {
-            from: escrow.to_account_info(),
+            from: self.vault.to_account_info(),
             to: buyer.to_account_info(),
         };
 
         // PDA signer seeds
+        let escrow_key = escrow.key();
         let seeds = &[
-            b"escrow".as_ref(),
-            escrow.seller.as_ref(),
-            &[escrow.bump],
+            b"vault".as_ref(),
+            escrow_key.as_ref(),
+            &[vault_bump],
         ];
         let signer_seeds = &[&seeds[..]];
 
