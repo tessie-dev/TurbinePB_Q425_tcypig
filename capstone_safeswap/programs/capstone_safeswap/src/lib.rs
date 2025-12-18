@@ -24,7 +24,8 @@ pub mod capstone_safeswap {
     }
 
     pub fn complete_escrow(ctx: Context<CompleteEscrow>) -> Result<()> {
-        ctx.accounts.complete()?;
+        let vault_bump = ctx.bumps.vault;
+        ctx.accounts.complete(vault_bump)?;
         Ok(())
     }
 
@@ -34,7 +35,8 @@ pub mod capstone_safeswap {
     }
 
     pub fn refund_escrow(ctx: Context<RefundEscrow>) -> Result<()> {
-        ctx.accounts.refund()?;
+        let vault_bump = ctx.bumps.vault;
+        ctx.accounts.refund(vault_bump)?;
         Ok(())
     }
 }
