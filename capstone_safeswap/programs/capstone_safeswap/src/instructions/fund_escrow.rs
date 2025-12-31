@@ -4,11 +4,23 @@ use crate::states::{EscrowAccount, TradeStatus};
 use crate::errors::EscrowError;
 
 #[derive(Accounts)]
+#[instruction(listing_id: u64)]
 pub struct FundEscrow<'info> {
     #[account(mut)]
     pub buyer: Signer<'info>,
 
-    #[account(mut)]
+    /// CHECK: only used for PDA seeds
+    pub seller: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        seeds = [
+            b"escrow",
+            seller.key().as_ref(),
+            &listing_id.to_le_bytes(),
+        ],
+        bump,
+    )]
     pub escrow: Account<'info, EscrowAccount>,
 
     /// CHECK: vault PDA, system-owned

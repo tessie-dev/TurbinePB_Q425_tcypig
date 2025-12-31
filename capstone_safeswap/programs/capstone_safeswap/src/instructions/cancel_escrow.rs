@@ -6,11 +6,20 @@ use crate::errors::EscrowError;
 // closes the escrow only
 
 #[derive(Accounts)]
+#[instruction(listing_id: u64)]
 pub struct CancelEscrow<'info> {
     #[account(mut)]
     pub seller: Signer<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [
+            b"escrow",
+            seller.key().as_ref(),
+            &listing_id.to_le_bytes(),
+        ],
+        bump,
+    )]
     pub escrow: Account<'info, EscrowAccount>,
 }
 

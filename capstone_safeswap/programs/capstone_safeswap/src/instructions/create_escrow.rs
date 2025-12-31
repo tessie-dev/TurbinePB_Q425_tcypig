@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use crate::states::EscrowAccount;
 
 #[derive(Accounts)]
+#[instruction(listing_id: u64)]
 pub struct CreateEscrow<'info> {
     #[account(mut)]
     pub seller: Signer<'info>,
@@ -9,8 +10,12 @@ pub struct CreateEscrow<'info> {
     #[account(
         init,
         payer = seller,
-        space = 8 + 32 + 32 + 8 + 1 + 8 + 8 + 1,
-        seeds = [b"escrow", seller.key().as_ref()],
+        space = 8 + 32 + 32 + 8 + 1 + 8 + 8 + 1 + 8,
+        seeds = [
+            b"escrow", 
+            seller.key().as_ref(),
+            &listing_id.to_le_bytes(),
+        ],
         bump,
     )]
     pub escrow: Account<'info, EscrowAccount>,
@@ -32,7 +37,7 @@ pub struct CreateEscrow<'info> {
 
 // create the trade but with the empty buyer field
 impl<'info> CreateEscrow<'info> {
-    pub fn init_escrow(&mut self, amount: u64, expire_at: i64, bump: u8) -> Result<()> {
+    pub fn init_escrow(&mut self, amount: u64, expire_at: i64, bump: u8, listing_id: u64) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
 
         self.escrow.set_inner(EscrowAccount {
@@ -43,6 +48,7 @@ impl<'info> CreateEscrow<'info> {
             created_at: now,
             expire_at,
             bump,
+            listing_id,
         });
 
         Ok(())

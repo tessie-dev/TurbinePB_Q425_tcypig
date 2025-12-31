@@ -7,6 +7,7 @@ use crate::errors::EscrowError;
 // escrow -> seller
 
 #[derive(Accounts)]
+#[instruction(listing_id: u64)]
 pub struct CompleteEscrow<'info> {
     #[account(mut)]
     pub buyer: Signer<'info>,
@@ -14,7 +15,15 @@ pub struct CompleteEscrow<'info> {
     #[account(mut)]
     pub seller: SystemAccount<'info>,
 
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [
+            b"escrow",
+            seller.key().as_ref(),
+            &listing_id.to_le_bytes(),
+        ],
+        bump,
+    )]
     pub escrow: Account<'info, EscrowAccount>,
 
     /// CHECK: vault PDA, system-owned

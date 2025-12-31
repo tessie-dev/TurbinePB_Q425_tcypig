@@ -10,6 +10,7 @@ pub struct EscrowAccount {
     pub created_at: i64,  // 8
     pub expire_at: i64,  // 8
     pub bump: u8,  // 1
+    pub listing_id: u64, // 8
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]

@@ -3,10 +3,17 @@ import { Program } from "@coral-xyz/anchor";
 import { CapstoneSafeswap } from "../target/types/capstone_safeswap";
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL, Keypair } from "@solana/web3.js";
 import { assert } from "chai";
+import { u64 } from "@metaplex-foundation/umi/serializers";
 
 
 function statusKey(s: any): string {
   return Object.keys(s ?? {})[0];
+}
+
+function u64ToLeBuffer(n: number): Buffer {
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64LE(BigInt(n));
+  return buf;
 }
 
 describe("capstone_safeswap", () => {
@@ -27,6 +34,7 @@ describe("capstone_safeswap", () => {
   const BN = anchor.BN;
   const amount = new BN(0.2 * LAMPORTS_PER_SOL); // 0.2 SOL
   const expireAt = new BN(Math.floor(Date.now() / 1000) + 3600); // now + 1h
+  const listingId = new BN(1);
 
   async function airdrop(pubkey: PublicKey, sol = 2) {
     const sig = await provider.connection.requestAirdrop(
@@ -49,7 +57,12 @@ describe("capstone_safeswap", () => {
 
     // derive PDA: seeds = [b"escrow", seller.key().as_ref()]
     [escrowPda, bump] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), seller.publicKey.toBuffer()],
+      [
+        Buffer.from("escrow"), 
+        seller.publicKey.toBuffer(),
+        // u64ToLeBuffer(listingId)
+        u64ToLeBuffer(Number(listingId))
+      ],
       program.programId
     );
 
@@ -63,7 +76,7 @@ describe("capstone_safeswap", () => {
   // create escrow
   it("Is initialized!", async () => {
     await program.methods
-      .createEscrow(amount, expireAt)
+      .createEscrow(listingId, amount, expireAt)
       .accountsPartial({
         seller: seller.publicKey,
         escrow: escrowPda,
@@ -99,9 +112,10 @@ describe("capstone_safeswap", () => {
     );
 
     await program.methods
-      .fundEscrow()
+      .fundEscrow(listingId)
       .accountsPartial({
         buyer: buyer.publicKey,
+        seller: seller.publicKey,
         escrow: escrowPda,
         vault: vaultPda,
         systemProgram: SystemProgram.programId,
@@ -138,9 +152,10 @@ describe("capstone_safeswap", () => {
   it("fund_escrow fails if escrow is not in Created", async () => {
     try {
       await program.methods
-        .fundEscrow()
+        .fundEscrow(listingId)
         .accountsPartial({
           buyer: buyer.publicKey,
+          seller: seller.publicKey,
           escrow: escrowPda,
           vault: vaultPda,
           systemProgram: SystemProgram.programId,
@@ -166,7 +181,7 @@ describe("capstone_safeswap", () => {
     );
 
     await program.methods
-      .completeEscrow()
+      .completeEscrow(listingId)
       .accountsPartial({
         buyer: buyer.publicKey,
         seller: seller.publicKey,
@@ -202,12 +217,17 @@ describe("capstone_safeswap", () => {
   it("refund_escrow returns SOL vault → buyer and sets Cancelled", async () => {
     const seller2 = Keypair.generate();
     const buyer2 = Keypair.generate();
+    const listingId2 = new anchor.BN(2);
 
     await airdrop(seller2.publicKey, 2);
     await airdrop(buyer2.publicKey, 2);
 
     const [escrow2] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), seller2.publicKey.toBuffer()],
+      [
+        Buffer.from("escrow"), 
+        seller2.publicKey.toBuffer()
+        ,listingId2.toArrayLike(Buffer, "le", 8)
+      ],
       program.programId
     );
 
@@ -218,7 +238,7 @@ describe("capstone_safeswap", () => {
 
     // create (init escrow + vault)
     await program.methods
-      .createEscrow(amount, expireAt)
+      .createEscrow(listingId2, amount, expireAt)
       .accountsPartial({
         seller: seller2.publicKey,
         escrow: escrow2,
@@ -230,9 +250,10 @@ describe("capstone_safeswap", () => {
 
     // fund (buyer -> vault)
     await program.methods
-      .fundEscrow()
+      .fundEscrow(listingId2)
       .accountsPartial({
         buyer: buyer2.publicKey,
+        seller: seller2.publicKey,
         escrow: escrow2,
         vault: vault2,
         systemProgram: SystemProgram.programId,
@@ -245,9 +266,10 @@ describe("capstone_safeswap", () => {
 
     // refund (vault -> buyer)
     await program.methods
-      .refundEscrow()
+      .refundEscrow(listingId2)
       .accountsPartial({
         buyer: buyer2.publicKey,
+        seller: seller2.publicKey,
         escrow: escrow2,
         vault: vault2,
         systemProgram: SystemProgram.programId,
@@ -271,9 +293,14 @@ describe("capstone_safeswap", () => {
   it("cancel_escrow cancels Created escrow (no SOL movement)", async () => {
     const seller3 = Keypair.generate();
     await airdrop(seller3.publicKey, 2);
+    const listingId3 = new anchor.BN(3);
 
     const [escrow3] = PublicKey.findProgramAddressSync(
-      [Buffer.from("escrow"), seller3.publicKey.toBuffer()],
+      [
+        Buffer.from("escrow"), 
+        seller3.publicKey.toBuffer(),
+        listingId3.toArrayLike(Buffer, "le", 8)
+      ],
       program.programId
     );
 
@@ -284,7 +311,7 @@ describe("capstone_safeswap", () => {
 
     // create
     await program.methods
-      .createEscrow(amount, expireAt)
+      .createEscrow(listingId3, amount, expireAt)
       .accountsPartial({
         seller: seller3.publicKey,
         escrow: escrow3,
@@ -298,7 +325,7 @@ describe("capstone_safeswap", () => {
 
     // cancel (seller cancels)
     await program.methods
-      .cancelEscrow()
+      .cancelEscrow(listingId3)
       .accountsPartial({
         seller: seller3.publicKey,
         escrow: escrow3,
